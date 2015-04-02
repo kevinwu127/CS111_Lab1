@@ -121,7 +121,7 @@ read_command_stream (command_stream_t s)
   /* FIXME: Replace this with your implementation too.  */
 <<<<<<< HEAD
   
-  // TODO:
+    // TODO:
   // get commands index
   // if the first character is a newline character, go to the next command line
   // while the character is not a newline
