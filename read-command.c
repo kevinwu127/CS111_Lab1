@@ -110,8 +110,6 @@ make_command_stream (int (*get_next_byte) (void *),
     }
     printf("%c", *ch);
   }
-
-  // save data into struct
   command_stream->num_commands = count;
   command_stream->stream_size = index;
   return command_stream;
@@ -121,6 +119,7 @@ command_t
 read_command_stream (command_stream_t s)
 {
   /* FIXME: Replace this with your implementation too.  */
+<<<<<<< HEAD
   
   // TODO:
   // get commands index
@@ -144,5 +143,8 @@ read_command_stream (command_stream_t s)
   // return the command
 
   //error (1, 0, "command reading not yet implemented");
+=======
+  //error (1, 0, "command reading not yet implemented");
+>>>>>>> parent of ee467b6... added pseudocode for read_command_stream
   return 0;
 }
