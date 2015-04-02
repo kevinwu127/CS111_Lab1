@@ -122,11 +122,13 @@ read_command_stream (command_stream_t s)
 {
   /* FIXME: Replace this with your implementation too.  */
   
-  // TODO:
+    // TODO:
   // get commands index
   // if the first character is a newline character, go to the next command line
   // while the character is not a newline
   //  save characters into an array
+  //  if the character is a >, < symbol
+  //    save the characters to the right of the symbol to command->input or command->output respectively
   //  if the character is a symbol (&&, ||, |, etc.)
   //    save character array into command->u.command[0]
   //    set command->type to appropriate type based on symbol
