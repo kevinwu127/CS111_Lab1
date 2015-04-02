@@ -110,6 +110,8 @@ make_command_stream (int (*get_next_byte) (void *),
     }
     printf("%c", *ch);
   }
+
+  // save data into struct
   command_stream->num_commands = count;
   command_stream->stream_size = index;
   return command_stream;
@@ -119,6 +121,26 @@ command_t
 read_command_stream (command_stream_t s)
 {
   /* FIXME: Replace this with your implementation too.  */
+  
+  // TODO:
+  // get commands index
+  // if the first character is a newline character, go to the next command line
+  // while the character is not a newline
+  //  save characters into an array
+  //  if the character is a symbol (&&, ||, |, etc.)
+  //    save character array into command->u.command[0]
+  //    set command->type to appropriate type based on symbol
+  //    recursively call on the rest of the command
+  //    save the second 'half' of the command into command->u.command[1]
+  //  if the character is a ( symbol
+  //    set command->type to SUBSHELL_COMMAND
+  //    recursively call on the rest of the command
+  //  if the character is a ) symbol
+  //    return the command
+  // exit loop
+  // set command->type to SIMPLE_COMMAND
+  // return the command
+
   error (1, 0, "command reading not yet implemented");
   return 0;
 }
