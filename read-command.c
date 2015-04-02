@@ -4,7 +4,7 @@
 #include "command-internals.h"
 #include "alloc.h"
 
-//#include <error.h>
+#include <error.h>
 #include <stdio.h>
 
 /* FIXME: You may need to add #include directives, macro definitions,
@@ -37,14 +37,14 @@ make_command_stream (int (*get_next_byte) (void *),
   // allocate struct
   command_stream_t command_stream = checked_malloc(sizeof(command_stream));
 
-  //if (command_stream == NULL)
-    //error(1, 0, "struct not allocated");
+  if (command_stream == NULL)
+    error(1, 0, "struct not allocated");
 
   // allocate array for file stream
   command_stream->stream = (char *)checked_malloc(size * sizeof(char));
 
-  //if (command_stream->stream == NULL)
-    //error(1, 0, "No memory allocated");
+  if (command_stream->stream == NULL)
+    error(1, 0, "No memory allocated");
 
   // populate array with the file data
   while(1)
@@ -54,8 +54,8 @@ make_command_stream (int (*get_next_byte) (void *),
     {
       command_stream->stream = (char *)checked_grow_alloc(command_stream->stream, &size);
 
-      //if (command_stream->stream == NULL)
-        //error(1, 0, "No memory reallocated");
+      if (command_stream->stream == NULL)
+        error(1, 0, "No memory reallocated");
     }
 
     c = get_next_byte(get_next_byte_argument);
@@ -67,8 +67,8 @@ make_command_stream (int (*get_next_byte) (void *),
   }
 
   // if it is an empty file, set an error
-  //if (index == 0)
-    //error(1,0,"Empty File");
+  if (index == 0)
+    error(1,0,"Empty File");
 
   // add a newline to the end of the file if none
   if (command_stream->stream[index - 1] != '\n')
@@ -86,8 +86,8 @@ make_command_stream (int (*get_next_byte) (void *),
 
   // create commands array
   command_stream->commands = (char **)checked_malloc((size_t)count * sizeof(char *));
-  //if (command_stream->commands == NULL)
-    //error(1,0,"Allocation error");
+  if (command_stream->commands == NULL)
+    error(1,0,"Allocation error");
 
   // populate array with pointers to each command in stream array
   char * cptr = command_stream->stream;
@@ -119,7 +119,6 @@ command_t
 read_command_stream (command_stream_t s)
 {
   /* FIXME: Replace this with your implementation too.  */
-<<<<<<< HEAD
   
     // TODO:
   // get commands index
@@ -142,9 +141,6 @@ read_command_stream (command_stream_t s)
   // set command->type to SIMPLE_COMMAND
   // return the command
 
-  //error (1, 0, "command reading not yet implemented");
-=======
-  //error (1, 0, "command reading not yet implemented");
->>>>>>> parent of ee467b6... added pseudocode for read_command_stream
+  error (1, 0, "command reading not yet implemented");
   return 0;
 }
