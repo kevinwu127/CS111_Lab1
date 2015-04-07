@@ -1,0 +1,144 @@
+
+
+command trees are separated by 2 or more newlines
+
+EDGE CASES:
+
+ex1: 
+
+a \n
+b
+
+a;b
+
+a \n
+\n
+b
+
+a      b (two different command trees)
+
+ex2:
+
+a && b
+
+a && 
+
+b (ignore newlines, look for next command)
+
+a; 
+
+b (terminates command, two separate commands)
+
+example for words array
+ls -l a.txt
+word[0] = ls;
+word[1] = -l;
+word[2] = a.txt;
+word[3] = '\0';
+set the next pointer in commands->u.word to null byte !
+
+parsing example
+a ; b && c | d ; (e) < f
+
+extract SIMPLE command c and simple command d
+define PIPE command that connects them together
+extract SIMPLE command b
+define AND command that connects PIPE command and b together
+extract SIMPLE command a
+define SEQUENCE command that connects a and AND command
+extract SUBSHELL command (e) with input f
+define SEQUENCE command that connects previous SEQUENCE command and SUBSHELL command
+
+	PIPE HAS HIGHEST PRECEDENCE
+
+
+	lowest to highest list:
+
+	sequence ;
+	and or   &&, ||
+	pipe 	 |
+
+
+infix -> postfix
+have to use two stacks
+
+operator stack & command stack
+1. if a simple command, push it onto command stack
+2. if it's a "(", push it onto the operator stack
+3. if it's an operator and operator stack is empty
+	a) Push the operator onto operator stack
+4. if it's an operator and operator stack NOT empty
+	a) Pop all operators with greater or equal precedence off the operator stack
+	   + for each operator, pop 2 commands off the command stack.
+	   + combine into new command.
+	   + push it onto command stack.
+	b) Stop when reach an operator with lower precedence or a "("
+	c) push new operator onto operator stack
+5. if encounter ")", pop operators off (similar to a | ) until matching "("
+	a. Create a subshell command by popping off top command on command stack
+6. if encounter "<" or ">", pop top command off, 
+	append the next token to the command's input or output redirect 
+	and push back to command stack
+7. Go back to 1
+
+ex. a && b || c
+
+1. command stack 	+ a
+2. operator stack 	+ &&
+3. command stack 	+ b
+4. command stack 	- a, b
+5. command stack 	+ a&&b
+6. operator stack 	+ ||
+7. command stack 	+ c
+8. command stack 	- a&&b, c
+9. command stack 	+ a&&b||c
+
+ex. a;b&&c|d;(e)<f
+
+1. command stack 	+ a
+2. operator stack 	+ ;
+3. command stack 	+ b
+4. operator stack 	+ &&
+5. command stack 	+ c
+6. operator stack 	+ |
+7. command stack 	+ d
+8. operator stack 	- |
+9. command stack 	- c, d
+10. command stack 	+ c | d
+11. operator stack 	- &&
+12. command stack 	- c|d, b
+13. command stack 	+ b&&c|d
+14. operator stack 	- ;
+15. command stack 	- b&&c|d, a
+16. command stack 	+ a;b&&c|d
+17. operator stack 	+ ;
+18. operator stack 	+ (
+19. command stack 	+ e
+20. operator stack 	- (
+21. create subshell command of e
+22. command stack 	+ (e)
+23. set input field to f
+24. operator stack 	- ;
+25. command stack 	- a;b&&c|d, (e)<f
+26. command stack 	+ a;b&&c|d;(e)<f
+
+Linked list implementation of make_command
+
+example:
+
+a && b\n
+\n
+c
+
+  &&      c
+ /  \
+a    b
+
+commandNode->command = and_command;
+commandNode2->command = c_command;
+
+
+Implementation of read_command:
+
+
+

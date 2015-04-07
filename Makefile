@@ -12,6 +12,7 @@ TESTS = $(wildcard test*.sh)
 TEST_BASES = $(subst .sh,,$(TESTS))
 
 TIMETRASH_SOURCES = \
+  stack.c \
   alloc.c \
   execute-command.c \
   main.c \
@@ -20,15 +21,16 @@ TIMETRASH_SOURCES = \
 TIMETRASH_OBJECTS = $(subst .c,.o,$(TIMETRASH_SOURCES))
 
 DIST_SOURCES = \
-  $(TIMETRASH_SOURCES) alloc.h command.h command-internals.h Makefile \
+  $(TIMETRASH_SOURCES) alloc.h command.h command-internals.h stack.h Makefile \
   $(TESTS) check-dist README
 
 timetrash: $(TIMETRASH_OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $(TIMETRASH_OBJECTS)
 
 alloc.o: alloc.h
-execute-command.o main.o print-command.o read-command.o: command.h
-execute-command.o print-command.o read-command.o: command-internals.h
+stack.o: stack.h
+execute-command.o main.o print-command.o read-command.o stack.o: command.h
+execute-command.o print-command.o read-command.o stack.o: command-internals.h
 
 dist: $(DISTDIR).tar.gz
 
