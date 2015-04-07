@@ -41,7 +41,6 @@ make_command_stream (int (*get_next_byte) (void *),
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
-  char ch;
   int index = 0;
   command_stream_t command_stream = (command_stream_t) checked_malloc(sizeof(command_stream_t));
   char * char_buffer = create_char_buffer(get_next_byte,get_next_byte_argument, &index);
@@ -59,27 +58,32 @@ make_command_stream (int (*get_next_byte) (void *),
   int command_word_index = 0;
 
   int i = 0;
-  int n = 0;
   
-    
+  // creating first command
   command_node->command = (struct command *) checked_malloc(sizeof(struct command));
   command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
   char * word = (char *) checked_malloc(SIZE*sizeof(char));
   int word_index = 0;
 
-
+  //until buffer reaches EOF
   while(char_buffer[i] != EOF)
   { 
-    if(char_buffer[i] == ' ' || char_buffer[i] == '\n') 
+    // if buffer reaches space or new line
+    if(char_buffer[i] == ' ' || char_buffer[i] == '\n')   
     {
+      // set end of line to null byte
       word[word_index] = '\0';
       
+      //set command_node's word equal to word 
       command_node->command->u.word[command_word_index++] = word;
+      // if there are two new lines at end of buffer, make new command tree
       if (char_buffer[i + 1] == '\n')
       {
+        // terminate word with null byte
         command_node->command->u.word[command_word_index] = '\0';
         command_node->command->type = SIMPLE_COMMAND;
         struct commandNode * new = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
+        // with each new command tree, make new commandNode and set to next
         command_node->next = new;
         command_node = new;
         command_stream->tail = command_node;
@@ -91,6 +95,7 @@ make_command_stream (int (*get_next_byte) (void *),
         i+=2;
         continue;
       }
+      //if not new command tree
       else
       {
         word = (char *) checked_malloc(SIZE*sizeof(char));
@@ -107,7 +112,7 @@ make_command_stream (int (*get_next_byte) (void *),
 
   command_stream->tail->command->type = SIMPLE_COMMAND;
 
-return command_stream;
+
 
 printf("%d", command_word_index);
 
@@ -116,7 +121,6 @@ int j;
 
 for(it = command_stream->head; it != NULL; it = it->next)
 {
-  printf("\n");
   for(i = 0; it->command->u.word[i] != NULL; i++)
   {
     for(j = 0; it->command->u.word[i][j] != '\0'; j++) 
@@ -125,8 +129,9 @@ for(it = command_stream->head; it != NULL; it = it->next)
       printf("%c", it->command->u.word[i][j]);
     }
   }
+  printf("\n");
 }
-
+return command_stream;
 
   
 
@@ -193,7 +198,7 @@ char * create_char_buffer (int (*get_next_byte) (void *),
          void *get_next_byte_argument, int * index)
 {
   size_t size = SIZE;
-  char * buffer = (char *) checked_malloc(sizeof(char) * SIZE);
+  char * buffer = (char *) checked_malloc(sizeof(char) * size);
   char ch;
 
   while (1)
@@ -208,7 +213,8 @@ char * create_char_buffer (int (*get_next_byte) (void *),
 
     if ((size_t)(*index) == size)
     {
-      buffer = (char *)checked_grow_alloc(buffer, size * sizeof(char));
+      size *= sizeof(char);
+      buffer = (char *)checked_grow_alloc(buffer, &size);
     }
 
     buffer[(*index)++] = ch;
