@@ -7,6 +7,7 @@
 
 #include <error.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
@@ -28,9 +29,12 @@ typedef struct command_stream
   struct commandNode * head;
   struct commandNode * tail;    // use this to insert new nodes
   struct commandNode * cursor;  // use this to advance to next node
-} *command_stream;
+} *command_stream_t;
 
-command_stream_t
+char * create_char_buffer (int (*get_next_byte) (void *),
+         void *get_next_byte_argument, int * index);
+
+command_stream_t 
 make_command_stream (int (*get_next_byte) (void *),
 		     void *get_next_byte_argument)
 {
@@ -38,15 +42,95 @@ make_command_stream (int (*get_next_byte) (void *),
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
   char ch;
-  char * command_buffer = (char *) checked_malloc(SIZE * sizeof(char));
+  int index = 0;
+  command_stream_t command_stream = (command_stream_t) checked_malloc(sizeof(command_stream_t));
+  char * char_buffer = create_char_buffer(get_next_byte,get_next_byte_argument, &index);
   char * operand_buffer = (char *) checked_malloc(2 * sizeof(char));
   commandStack command_stack;
   opStack op_stack;
   CommandStackInit(&command_stack, SIZE);
   OpStackInit(&op_stack, SIZE);
+  struct commandNode * command_node = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
 
-  int index = 0;
+  command_stream->head = command_node;
+  command_stream->tail = command_node;
+  command_stream->cursor = command_node;
+  
+  int command_word_index = 0;
 
+  int i = 0;
+  int n = 0;
+  
+    
+  command_node->command = (struct command *) checked_malloc(sizeof(struct command));
+  command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
+  char * word = (char *) checked_malloc(SIZE*sizeof(char));
+  int word_index = 0;
+
+
+  while(char_buffer[i] != EOF)
+  { 
+    if(char_buffer[i] == ' ' || char_buffer[i] == '\n') 
+    {
+      word[word_index] = '\0';
+      
+      command_node->command->u.word[command_word_index++] = word;
+      if (char_buffer[i + 1] == '\n')
+      {
+        command_node->command->u.word[command_word_index] = '\0';
+        command_node->command->type = SIMPLE_COMMAND;
+        struct commandNode * new = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
+        command_node->next = new;
+        command_node = new;
+        command_stream->tail = command_node;
+        command_word_index = 0;
+        command_node->command = (struct command *) checked_malloc(sizeof(struct command));
+        command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
+        word = (char *) checked_malloc(SIZE*sizeof(char));
+        word_index = 0;
+        i+=2;
+        continue;
+      }
+      else
+      {
+        word = (char *) checked_malloc(SIZE*sizeof(char));
+        word_index = 0;
+      }
+    }
+    else
+    {
+      word[word_index++] = char_buffer[i];
+    }
+    i++;
+    
+  }
+
+  command_stream->tail->command->type = SIMPLE_COMMAND;
+
+return command_stream;
+
+printf("%d", command_word_index);
+
+struct commandNode * it;
+int j;
+
+for(it = command_stream->head; it != NULL; it = it->next)
+{
+  printf("\n");
+  for(i = 0; it->command->u.word[i] != NULL; i++)
+  {
+    for(j = 0; it->command->u.word[i][j] != '\0'; j++) 
+    {
+
+      printf("%c", it->command->u.word[i][j]);
+    }
+  }
+}
+
+
+  
+
+/*
   // populate array with the file data
   while(1)
   {
@@ -86,7 +170,7 @@ make_command_stream (int (*get_next_byte) (void *),
 
     
 
-  }
+  }*/
 
  
 }
@@ -96,12 +180,39 @@ read_command_stream (command_stream_t s)
 {
   /* FIXME: Replace this with your implementation too.  */
 
-  /*if (s->cursor == NULL) {return NULL;}
+  if (s->cursor == NULL) {return NULL;}
   struct commandNode * temp = s->cursor;
   s->cursor = s->cursor->next;
-  return temp;*/
+  return temp->command;
 
-  error (1, 0, "command reading not yet implemented");
-  return 0;
+  //error (1, 0, "command reading not yet implemented");
+  //return 0;
+}
+
+char * create_char_buffer (int (*get_next_byte) (void *),
+         void *get_next_byte_argument, int * index)
+{
+  size_t size = SIZE;
+  char * buffer = (char *) checked_malloc(sizeof(char) * SIZE);
+  char ch;
+
+  while (1)
+  {
+    ch = get_next_byte(get_next_byte_argument);
+    if (ch == EOF)
+    {
+      buffer[(*index)++] = '\n';
+      buffer[(*index)] = EOF;
+      break;
+    }
+
+    if ((size_t)(*index) == size)
+    {
+      buffer = (char *)checked_grow_alloc(buffer, size * sizeof(char));
+    }
+
+    buffer[(*index)++] = ch;
+  }
+  return buffer;
 }
 
