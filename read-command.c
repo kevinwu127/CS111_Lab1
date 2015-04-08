@@ -76,6 +76,7 @@ make_command_stream (int (*get_next_byte) (void *),
       
       //set command_node's word equal to word 
       command_node->command->u.word[command_word_index++] = word;
+
       // if there are two new lines at end of buffer, make new command tree
       if (char_buffer[i + 1] == '\n')
       {
@@ -83,6 +84,7 @@ make_command_stream (int (*get_next_byte) (void *),
         command_node->command->u.word[command_word_index] = '\0';
         command_node->command->type = SIMPLE_COMMAND;
         struct commandNode * new = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
+
         // with each new command tree, make new commandNode and set to next
         command_node->next = new;
         command_node = new;
@@ -102,6 +104,33 @@ make_command_stream (int (*get_next_byte) (void *),
         word_index = 0;
       }
     }
+
+    else if ( (char_buffer[i] == '&' && char_buffer[i+1] == '&') ||
+               char_buffer[i] == '|' || char_buffer[i] == ';' )
+    {
+      // set end of line to null byte
+      word[word_index] = '\0';
+      
+      //set command_node's word equal to word 
+      command_node->command->u.word[command_word_index++] = word;
+      // terminate word with null byte
+      command_node->command->u.word[command_word_index] = '\0';
+      command_node->command->type = SIMPLE_COMMAND;
+      struct commandNode * new = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
+      // with each new command tree, make new commandNode and set to next
+      command_node->next = new;
+      command_node = new;
+      command_stream->tail = command_node;
+      command_word_index = 0;
+      command_node->command = (struct command *) checked_malloc(sizeof(struct command));
+      command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
+      word = (char *) checked_malloc(SIZE*sizeof(char));
+      word_index = 0;
+      i+=2;
+      continue;
+
+    }
+    // if not a space or newline, add character to word char array
     else
     {
       word[word_index++] = char_buffer[i];
@@ -113,6 +142,7 @@ make_command_stream (int (*get_next_byte) (void *),
   command_stream->tail->command->type = SIMPLE_COMMAND;
 
 
+return command_stream;
 
 printf("%d", command_word_index);
 
@@ -131,7 +161,7 @@ for(it = command_stream->head; it != NULL; it = it->next)
   }
   printf("\n");
 }
-return command_stream;
+
 
   
 
