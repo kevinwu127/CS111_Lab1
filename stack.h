@@ -9,7 +9,7 @@
  */
 
 typedef struct command * commandStackElement;
-typedef char * opStackElement;
+typedef enum command_type * opStackElement;
 
 /*
  * Type: stackT

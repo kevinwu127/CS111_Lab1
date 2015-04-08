@@ -44,7 +44,7 @@ make_command_stream (int (*get_next_byte) (void *),
   int index = 0;
   command_stream_t command_stream = (command_stream_t) checked_malloc(sizeof(command_stream_t));
   char * char_buffer = create_char_buffer(get_next_byte,get_next_byte_argument, &index);
-  char * operand_buffer = (char *) checked_malloc(2 * sizeof(char));
+  enum command_type * op_type;
   commandStack command_stack;
   opStack op_stack;
   CommandStackInit(&command_stack, SIZE);
@@ -77,12 +77,42 @@ make_command_stream (int (*get_next_byte) (void *),
       //set command_node's word equal to word 
       command_node->command->u.word[command_word_index++] = word;
 
+      // check for more whitespace
+      while(1)
+      {
+        if (char_buffer[i + 1] == ' ') { i++; }
+        else { break; }
+      }
+
       // if there are two new lines at end of buffer, make new command tree
       if (char_buffer[i + 1] == '\n')
       {
         // terminate word with null byte
         command_node->command->u.word[command_word_index] = '\0';
         command_node->command->type = SIMPLE_COMMAND;
+
+        
+        if (!OpStackIsEmpty(&op_stack))
+        {
+          struct command * root_command = (struct command *)checked_malloc(sizeof(struct command));
+          root_command->type = *OpStackPop(&op_stack);
+          //root_command->type = SEQUENCE_COMMAND;
+          root_command->u.command[1] = command_node->command;
+          root_command->u.command[0] = CommandStackPop(&command_stack);
+          command_node->command = root_command;
+        }
+
+        // check for more new lines or EOF
+        int more = 2;
+        int eof = 0;
+        while (1)
+        {
+          if (char_buffer[i + more] == '\n' || char_buffer[i + more] == ' ') { more++; }          
+          else if (char_buffer[i + more] == EOF) { eof = 1; break; }
+          else { break; }
+        }
+        if (eof) { break; }
+
         struct commandNode * new = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
 
         // with each new command tree, make new commandNode and set to next
@@ -94,7 +124,7 @@ make_command_stream (int (*get_next_byte) (void *),
         command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
         word = (char *) checked_malloc(SIZE*sizeof(char));
         word_index = 0;
-        i+=2;
+        i+=more;
         continue;
       }
       //if not new command tree
@@ -104,31 +134,90 @@ make_command_stream (int (*get_next_byte) (void *),
         word_index = 0;
       }
     }
-
+    // if next char is an operator
     else if ( (char_buffer[i] == '&' && char_buffer[i+1] == '&') ||
                char_buffer[i] == '|' || char_buffer[i] == ';' )
     {
       // set end of line to null byte
+
       word[word_index] = '\0';
-      
       //set command_node's word equal to word 
       command_node->command->u.word[command_word_index++] = word;
+      
       // terminate word with null byte
       command_node->command->u.word[command_word_index] = '\0';
+
       command_node->command->type = SIMPLE_COMMAND;
-      struct commandNode * new = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
-      // with each new command tree, make new commandNode and set to next
-      command_node->next = new;
-      command_node = new;
-      command_stream->tail = command_node;
-      command_word_index = 0;
-      command_node->command = (struct command *) checked_malloc(sizeof(struct command));
+     
+      // TODO: IMPLEMENT STACK FUNCTIONALITY HERE. 
+      
+      CommandStackPush(&command_stack, command_node->command);
+      // create new command
+      command_node->command = (struct command *)checked_malloc(sizeof(struct command));
       command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
       word = (char *) checked_malloc(SIZE*sizeof(char));
       word_index = 0;
-      i+=2;
-      continue;
+      command_word_index = 0;
+      op_type = (enum command_type *) checked_malloc(sizeof(enum command_type));
 
+      if ( (char_buffer[i] == '&' && char_buffer[i + 1] == '&') ||
+           (char_buffer[i] == '|' && char_buffer[i + 1] == '|') )
+      {
+        if (char_buffer[i] == '&')
+        {
+          *op_type = AND_COMMAND;
+        }
+        else
+        {
+          *op_type = OR_COMMAND;
+        }
+        i+=2;
+        
+        // check for more whitespace
+        while(1)
+        {
+          if (char_buffer[i] == ' ') { i++; }
+          else { break; }
+        }
+      }
+      else if ( (char_buffer[i] == '|' && char_buffer[i + 1] != '|') ||
+                 char_buffer[i] == ';' )
+      {
+        if (char_buffer[i] == '|')
+        {
+          *op_type = PIPE_COMMAND;
+        }
+        else
+        {
+          *op_type = SEQUENCE_COMMAND;
+        }
+        i++;
+        
+        // check for more whitespace
+        while(1)
+        {
+          if (char_buffer[i] == ' ') { i++; }
+          else { break; }
+        }
+      }
+
+      if ( OpStackIsEmpty(&op_stack) )
+      {
+        OpStackPush(&op_stack, op_type);
+        continue;
+      }
+      else
+      {
+        command_node->command->type = *(OpStackPop(&op_stack)); 
+        command_node->command->u.command[1] = CommandStackPop(&command_stack);
+        command_node->command->u.command[0] = CommandStackPop(&command_stack);
+        CommandStackPush(&command_stack, command_node->command);
+        // create new command
+        command_node->command = (struct command *)checked_malloc(sizeof(struct command));
+        command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
+        OpStackPush(&op_stack, op_type);
+        continue;
+      }
     }
     // if not a space or newline, add character to word char array
     else
@@ -139,75 +228,7 @@ make_command_stream (int (*get_next_byte) (void *),
     
   }
 
-  command_stream->tail->command->type = SIMPLE_COMMAND;
-
-
-return command_stream;
-
-printf("%d", command_word_index);
-
-struct commandNode * it;
-int j;
-
-for(it = command_stream->head; it != NULL; it = it->next)
-{
-  for(i = 0; it->command->u.word[i] != NULL; i++)
-  {
-    for(j = 0; it->command->u.word[i][j] != '\0'; j++) 
-    {
-
-      printf("%c", it->command->u.word[i][j]);
-    }
-  }
-  printf("\n");
-}
-
-
-  
-
-/*
-  // populate array with the file data
-  while(1)
-  {
-    
-    // get the next character
-    ch = get_next_byte(get_next_byte_argument);
-    if (ch == EOF)
-      break;
-
-    if (ch == '&' || ch == '|')
-    {
-      char next = get_next_byte(get_next_byte_argument);
-
-      if (next == '&' && ch =='&')        // &&
-      {
-          operand_buffer[0] = '&';
-          operand_buffer[1] = '&';
-          printf("%c", operand_buffer[0]);
-      }
-      else if (next != '&' && ch == '&')  // &
-        error(1,0,"wrong operand");
-
-      if (next == '|' && ch == '|')       // || 
-      {
-        operand_buffer[0] = '|';
-        operand_buffer[1] = '|';
-        printf("%c", operand_buffer[0]);
-      }
-      else if (next != '|' && ch == '|')  // |
-      {
-        operand_buffer[0] = '|';
-        operand_buffer[1] = '\0';
-        command_buffer[index] = next;
-        index++;
-      }
-    }
-
-    
-
-  }*/
-
- 
+  return command_stream;
 }
 
 command_t
@@ -219,9 +240,6 @@ read_command_stream (command_stream_t s)
   struct commandNode * temp = s->cursor;
   s->cursor = s->cursor->next;
   return temp->command;
-
-  //error (1, 0, "command reading not yet implemented");
-  //return 0;
 }
 
 char * create_char_buffer (int (*get_next_byte) (void *),
@@ -236,6 +254,7 @@ char * create_char_buffer (int (*get_next_byte) (void *),
     ch = get_next_byte(get_next_byte_argument);
     if (ch == EOF)
     {
+      buffer[(*index)++] = '\n';
       buffer[(*index)++] = '\n';
       buffer[(*index)] = EOF;
       break;
