@@ -219,6 +219,26 @@ make_command_stream (int (*get_next_byte) (void *),
         continue;
       }
     }
+
+    // if the line is a comment starting with #
+    else if (char_buffer[i] == '#')
+    {
+      i++;
+      while(1)
+      {
+        if (char_buffer[i] == '\n') { break; }
+        else { i++; }
+      }
+      int eof = 0;
+      while (1)
+      {
+        if (char_buffer[i] == '\n' || char_buffer[i] == ' ') { i++; }          
+        else if (char_buffer[i] == EOF) { eof = 1; break; }
+        else { break; }
+      }
+      if (eof) { break; }
+      else { continue; }
+    }
     // if not a space or newline, add character to word char array
     else
     {
