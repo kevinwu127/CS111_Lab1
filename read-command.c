@@ -93,6 +93,9 @@ make_command_stream (int (*get_next_byte) (void *),
         command_node->command->u.word[command_word_index] = '\0';
         command_node->command->type = SIMPLE_COMMAND;
 
+        // if top command is a semicolon
+        
+
         // push this command onto command stack
         while (!OpStackIsEmpty(&op_stack))
         {
@@ -109,6 +112,11 @@ make_command_stream (int (*get_next_byte) (void *),
             OpStackPop(&op_stack);
             root_command = CommandStackTop(&command_stack);
             root_command->output = command_node->command->u.word[0];
+          }
+          else if (*(OpStackTop(&op_stack)->op_type) == SEQUENCE_COMMAND) // TODO: SEQUENCE
+          {
+            OpStackPop(&op_stack);
+            root_command = CommandStackPop(&command_stack);
           }
           else 
           {
@@ -170,8 +178,6 @@ make_command_stream (int (*get_next_byte) (void *),
       command_node->command->u.word[command_word_index] = '\0';
 
       command_node->command->type = SIMPLE_COMMAND;
-     
-      // TODO: IMPLEMENT STACK FUNCTIONALITY HERE. 
       
       CommandStackPush(&command_stack, command_node->command);
       // create new command
@@ -223,6 +229,7 @@ make_command_stream (int (*get_next_byte) (void *),
         // check for more whitespace
         while(1)
         {
+          // TODO: SEQUENCE COMMAND IS SPECIAL 
           if (char_buffer[i] == ' ' || char_buffer[i] == '\n') { i++; }
           else { break; }
         }
@@ -367,4 +374,3 @@ char * create_char_buffer (int (*get_next_byte) (void *),
   }
   return buffer;
 }
-
