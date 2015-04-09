@@ -97,9 +97,25 @@ make_command_stream (int (*get_next_byte) (void *),
         while (!OpStackIsEmpty(&op_stack))
         {
           struct command * root_command = (struct command *)checked_malloc(sizeof(struct command));
-          root_command->type = *(OpStackPop(&op_stack)->op_type);
-          root_command->u.command[1] = command_node->command;
-          root_command->u.command[0] = CommandStackPop(&command_stack);
+
+          if (*(OpStackTop(&op_stack)->op_type) == INPUT_COMMAND)
+          {
+            OpStackPop(&op_stack);
+            root_command = CommandStackTop(&command_stack);
+            root_command->input = command_node->command->u.word[0];
+          }
+          else if (*(OpStackTop(&op_stack)->op_type) == OUTPUT_COMMAND)
+          {
+            OpStackPop(&op_stack);
+            root_command = CommandStackTop(&command_stack);
+            root_command->output = command_node->command->u.word[0];
+          }
+          else 
+          {
+            root_command->type = *(OpStackPop(&op_stack)->op_type);
+            root_command->u.command[1] = command_node->command;
+            root_command->u.command[0] = CommandStackPop(&command_stack);
+          }
           command_node->command = root_command;
         }
 
@@ -137,7 +153,8 @@ make_command_stream (int (*get_next_byte) (void *),
     }
     // if next char is an operator
     else if ( (char_buffer[i] == '&' && char_buffer[i+1] == '&') ||
-               char_buffer[i] == '|' || char_buffer[i] == ';' )
+               char_buffer[i] == '|' || char_buffer[i] == ';' ||
+               char_buffer[i] == '<' || char_buffer[i] == '>' )
     {
       // set end of line to null byte
 
@@ -210,6 +227,27 @@ make_command_stream (int (*get_next_byte) (void *),
           else { break; }
         }
       }
+      else
+      {
+        if (char_buffer[i] == '<')
+        {
+          *(op_struct->op_type) = INPUT_COMMAND;
+          op_struct->value = -1;
+        }
+        else
+        {
+          *(op_struct->op_type) = OUTPUT_COMMAND;
+          op_struct->value = -1;
+        }
+        i++;
+        
+        // check for more whitespace
+        while(1)
+        {
+          if (char_buffer[i] == ' ' || char_buffer[i] == '\n') { i++; }
+          else { break; }
+        }
+      }
 
       if ( OpStackIsEmpty(&op_stack) )
       {
@@ -218,17 +256,30 @@ make_command_stream (int (*get_next_byte) (void *),
       }
       else
       {
+        if ( *(OpStackTop(&op_stack)->op_type) == INPUT_COMMAND )
+        {
+          OpStackPop(&op_stack);
+          char * temp = CommandStackPop(&command_stack)->u.word[0];
+          command_node->command = CommandStackPop(&command_stack);
+          command_node->command->input = temp;
+          CommandStackPush(&command_stack, command_node->command); 
+          command_node->command = (struct command *)checked_malloc(sizeof(struct command)); 
+        }
+
+        else if ( *(OpStackTop(&op_stack)->op_type) == OUTPUT_COMMAND )
+        {
+          OpStackPop(&op_stack);
+          char * temp = CommandStackPop(&command_stack)->u.word[0];
+          command_node->command = CommandStackPop(&command_stack);
+          command_node->command->output = temp;
+          CommandStackPush(&command_stack, command_node->command); 
+          command_node->command = (struct command *)checked_malloc(sizeof(struct command));
+        }
+        
         while( !OpStackIsEmpty(&op_stack) && op_struct->value <= OpStackTop(&op_stack)->value ) 
         {
           
           command_node->command->type = *(OpStackPop(&op_stack)->op_type); 
-          /*if (count == 0) 
-          {
-            command_node->command->u.command[1] = CommandStackPop(&command_stack);
-            command_node->command->u.command[0] = CommandStackPop(&command_stack);
-            count++;
-          }*/
-          
           command_node->command->u.command[1] = CommandStackPop(&command_stack);
           command_node->command->u.command[0] = CommandStackPop(&command_stack);
           

@@ -81,6 +81,7 @@ void OpStackPush(opStack *stackP, opStackElement element);
 commandStackElement CommandStackPop(commandStack *stackP);
 opStackElement OpStackPop(opStack *stackP);
 
+commandStackElement CommandStackTop(commandStack *stackP);
 opStackElement OpStackTop(opStack *stackP);
 
 /*
