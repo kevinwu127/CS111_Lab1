@@ -81,11 +81,18 @@ commandStackElement CommandStackPop(commandStack *stackP)
 opStackElement OpStackPop(opStack *stackP)
 {
   if (OpStackIsEmpty(stackP))
-    error(1,0,"stack is empty");
+    error(1,0,"stack is empty 1");
 
   return stackP->contents[stackP->top--];
 }
 
+opStackElement OpStackTop(opStack *stackP)
+{
+  if (OpStackIsEmpty(stackP))
+    error(1,0,"stack is empty 2");
+
+  return stackP->contents[stackP->top];
+}
 
 int CommandStackIsEmpty(commandStack *stackP)
 {

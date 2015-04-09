@@ -9,7 +9,12 @@
  */
 
 typedef struct command * commandStackElement;
-typedef enum command_type * opStackElement;
+//typedef enum command_type * opStackElement;
+
+typedef struct operator{
+	enum command_type * op_type;
+	int value;
+} * opStackElement;
 
 /*
  * Type: stackT
@@ -75,6 +80,8 @@ void CommandStackPush(commandStack *stackP, commandStackElement element);
 void OpStackPush(opStack *stackP, opStackElement element);
 commandStackElement CommandStackPop(commandStack *stackP);
 opStackElement OpStackPop(opStack *stackP);
+
+opStackElement OpStackTop(opStack *stackP);
 
 /*
  * Functions: StackIsEmpty, StackIsFull

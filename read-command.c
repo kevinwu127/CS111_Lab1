@@ -16,8 +16,6 @@
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 
-
-
 struct commandNode
 {
   struct command * command;   // store root of command tree
@@ -41,35 +39,39 @@ make_command_stream (int (*get_next_byte) (void *),
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
+
   int index = 0;
   command_stream_t command_stream = (command_stream_t) checked_malloc(sizeof(command_stream_t));
   char * char_buffer = create_char_buffer(get_next_byte,get_next_byte_argument, &index);
-  enum command_type * op_type;
+
+  struct operator * op_struct;
+
   commandStack command_stack;
   opStack op_stack;
+
   CommandStackInit(&command_stack, SIZE);
   OpStackInit(&op_stack, SIZE);
-  struct commandNode * command_node = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
 
+  struct commandNode * command_node = (struct commandNode *)checked_malloc(sizeof(struct commandNode));
   command_stream->head = command_node;
   command_stream->tail = command_node;
   command_stream->cursor = command_node;
   
   int command_word_index = 0;
-
+  int word_index = 0;
   int i = 0;
   
   // creating first command
   command_node->command = (struct command *) checked_malloc(sizeof(struct command));
   command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
   char * word = (char *) checked_malloc(SIZE*sizeof(char));
-  int word_index = 0;
+
 
   //until buffer reaches EOF
   while(char_buffer[i] != EOF)
   { 
     // if buffer reaches space or new line
-    if(char_buffer[i] == ' ' || char_buffer[i] == '\n')   
+    if (char_buffer[i] == ' ' || char_buffer[i] == '\n')   
     {
       // set end of line to null byte
       word[word_index] = '\0';
@@ -91,12 +93,11 @@ make_command_stream (int (*get_next_byte) (void *),
         command_node->command->u.word[command_word_index] = '\0';
         command_node->command->type = SIMPLE_COMMAND;
 
-        
-        if (!OpStackIsEmpty(&op_stack))
+        // push this command onto command stack
+        while (!OpStackIsEmpty(&op_stack))
         {
           struct command * root_command = (struct command *)checked_malloc(sizeof(struct command));
-          root_command->type = *OpStackPop(&op_stack);
-          //root_command->type = SEQUENCE_COMMAND;
+          root_command->type = *(OpStackPop(&op_stack)->op_type);
           root_command->u.command[1] = command_node->command;
           root_command->u.command[0] = CommandStackPop(&command_stack);
           command_node->command = root_command;
@@ -140,9 +141,13 @@ make_command_stream (int (*get_next_byte) (void *),
     {
       // set end of line to null byte
 
-      word[word_index] = '\0';
-      //set command_node's word equal to word 
-      command_node->command->u.word[command_word_index++] = word;
+      if (char_buffer[i-1] != ' ')
+      {
+        word[word_index] = '\0';
+        //set command_node's word equal to word 
+        command_node->command->u.word[command_word_index++] = word;
+      }
+      
       
       // terminate word with null byte
       command_node->command->u.word[command_word_index] = '\0';
@@ -158,25 +163,28 @@ make_command_stream (int (*get_next_byte) (void *),
       word = (char *) checked_malloc(SIZE*sizeof(char));
       word_index = 0;
       command_word_index = 0;
-      op_type = (enum command_type *) checked_malloc(sizeof(enum command_type));
+      op_struct = (struct operator *) checked_malloc(sizeof(struct operator));
+      op_struct->op_type = (enum command_type *) checked_malloc(sizeof(enum command_type));
 
       if ( (char_buffer[i] == '&' && char_buffer[i + 1] == '&') ||
            (char_buffer[i] == '|' && char_buffer[i + 1] == '|') )
       {
         if (char_buffer[i] == '&')
         {
-          *op_type = AND_COMMAND;
+          *(op_struct->op_type) = AND_COMMAND;
+          op_struct->value = 1;
         }
         else
         {
-          *op_type = OR_COMMAND;
+          *(op_struct->op_type) = OR_COMMAND;
+          op_struct->value = 1;
         }
         i+=2;
         
         // check for more whitespace
         while(1)
         {
-          if (char_buffer[i] == ' ') { i++; }
+          if (char_buffer[i] == ' ' || char_buffer[i] == '\n') { i++; }
           else { break; }
         }
       }
@@ -185,42 +193,57 @@ make_command_stream (int (*get_next_byte) (void *),
       {
         if (char_buffer[i] == '|')
         {
-          *op_type = PIPE_COMMAND;
+          *(op_struct->op_type) = PIPE_COMMAND;
+          op_struct->value = 2;
         }
         else
         {
-          *op_type = SEQUENCE_COMMAND;
+          *(op_struct->op_type) = SEQUENCE_COMMAND;
+          op_struct->value = 0;
         }
         i++;
         
         // check for more whitespace
         while(1)
         {
-          if (char_buffer[i] == ' ') { i++; }
+          if (char_buffer[i] == ' ' || char_buffer[i] == '\n') { i++; }
           else { break; }
         }
       }
 
       if ( OpStackIsEmpty(&op_stack) )
       {
-        OpStackPush(&op_stack, op_type);
+        OpStackPush(&op_stack, op_struct);
         continue;
       }
       else
       {
-        command_node->command->type = *(OpStackPop(&op_stack)); 
-        command_node->command->u.command[1] = CommandStackPop(&command_stack);
-        command_node->command->u.command[0] = CommandStackPop(&command_stack);
-        CommandStackPush(&command_stack, command_node->command);
+        while( !OpStackIsEmpty(&op_stack) && op_struct->value <= OpStackTop(&op_stack)->value ) 
+        {
+          
+          command_node->command->type = *(OpStackPop(&op_stack)->op_type); 
+          /*if (count == 0) 
+          {
+            command_node->command->u.command[1] = CommandStackPop(&command_stack);
+            command_node->command->u.command[0] = CommandStackPop(&command_stack);
+            count++;
+          }*/
+          
+          command_node->command->u.command[1] = CommandStackPop(&command_stack);
+          command_node->command->u.command[0] = CommandStackPop(&command_stack);
+          
+          CommandStackPush(&command_stack, command_node->command); 
+          command_node->command = (struct command *)checked_malloc(sizeof(struct command));  
+        }
+
         // create new command
-        command_node->command = (struct command *)checked_malloc(sizeof(struct command));
         command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
-        OpStackPush(&op_stack, op_type);
+        OpStackPush(&op_stack, op_struct);
         continue;
       }
     }
 
-    // if the line is a comment starting with #
+    // if the line is a comment starting with #, ignore the whole line
     else if (char_buffer[i] == '#')
     {
       i++;
@@ -229,6 +252,8 @@ make_command_stream (int (*get_next_byte) (void *),
         if (char_buffer[i] == '\n') { break; }
         else { i++; }
       }
+
+      // Check for more newlines, whitespaces, or EOF
       int eof = 0;
       while (1)
       {
@@ -239,13 +264,14 @@ make_command_stream (int (*get_next_byte) (void *),
       if (eof) { break; }
       else { continue; }
     }
+
     // if not a space or newline, add character to word char array
     else
-    {
-      word[word_index++] = char_buffer[i];
+    { 
+      word[word_index++] = char_buffer[i]; 
     }
+
     i++;
-    
   }
 
   return command_stream;
