@@ -60,6 +60,10 @@ make_command_stream (int (*get_next_byte) (void *),
   int command_word_index = 0;
   int word_index = 0;
   int i = 0;
+
+  int valid_first_token = 0;
+  int newline_bool = 0;
+  int subshell_bool = 0;
   
   // creating first command
   command_node->command = (struct command *) checked_malloc(sizeof(struct command));
@@ -71,28 +75,40 @@ make_command_stream (int (*get_next_byte) (void *),
   while(char_buffer[i] != EOF)
   { 
     // if buffer reaches space or new line
-    if (char_buffer[i] == ' ' || char_buffer[i] == '\n')   
+    if (char_buffer[i] == ' ' || char_buffer[i] == '\n' || char_buffer[i] == '\t')   
     {
-      // set end of line to null byte
-      word[word_index] = '\0';
-      
-      //set command_node's word equal to word 
-      command_node->command->u.word[command_word_index++] = word;
+      if (char_buffer[i] == '\n') { newline_bool = 1; }
+
+      if (!subshell_bool)
+      {
+        // set end of line to null byte
+        word[word_index] = '\0';
+        
+        //set command_node's word equal to word 
+        command_node->command->u.word[command_word_index++] = word;
+      }
 
       // check for more whitespace
       while(1)
       {
-        if (char_buffer[i + 1] == ' ') { i++; }
+        if (char_buffer[i + 1] == ' ' || char_buffer[i + 1] == '\t') { i++; }
         else { break; }
       }
 
       // if there are two new lines at end of buffer, make new command tree
-      if (char_buffer[i + 1] == '\n')
+      if (char_buffer[i + 1] == '\n' && newline_bool)
       {
-        // terminate word with null byte
-        command_node->command->u.word[command_word_index] = '\0';
-        command_node->command->type = SIMPLE_COMMAND;
 
+        if (!subshell_bool)
+        {
+          // terminate word with null byte
+          command_node->command->u.word[command_word_index] = '\0';
+          command_node->command->type = SIMPLE_COMMAND;
+        }
+        else 
+        {
+          command_node->command = CommandStackPop(&command_stack);
+        }
         // if top command is a semicolon
         
 
@@ -113,14 +129,15 @@ make_command_stream (int (*get_next_byte) (void *),
             root_command = CommandStackTop(&command_stack);
             root_command->output = command_node->command->u.word[0];
           }
-          else if (*(OpStackTop(&op_stack)->op_type) == SEQUENCE_COMMAND) // TODO: SEQUENCE
+          /*else if (*(OpStackTop(&op_stack)->op_type) == SEQUENCE_COMMAND) // TODO: SEQUENCE
           {
             OpStackPop(&op_stack);
             root_command = CommandStackPop(&command_stack);
-          }
+          }*/
           else 
           {
             root_command->type = *(OpStackPop(&op_stack)->op_type);
+            if (root_command->type == SUBSHELL_COMMAND) { error(1,1,"Error"); }
             root_command->u.command[1] = command_node->command;
             root_command->u.command[0] = CommandStackPop(&command_stack);
           }
@@ -132,7 +149,8 @@ make_command_stream (int (*get_next_byte) (void *),
         int eof = 0;
         while (1)
         {
-          if (char_buffer[i + more] == '\n' || char_buffer[i + more] == ' ') { more++; }          
+          if (char_buffer[i + more] == '\n' || char_buffer[i + more] == ' ' || 
+              char_buffer[i + more] == '\t') { more++; }          
           else if (char_buffer[i + more] == EOF) { eof = 1; break; }
           else { break; }
         }
@@ -149,37 +167,120 @@ make_command_stream (int (*get_next_byte) (void *),
         command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
         word = (char *) checked_malloc(SIZE*sizeof(char));
         word_index = 0;
+        valid_first_token = 0;
+        newline_bool = 0;
+        subshell_bool = 0;
         i+=more;
         continue;
       }
       //if not new command tree
       else
       {
-        word = (char *) checked_malloc(SIZE*sizeof(char));
-        word_index = 0;
+        
+        i++;
+
+        // if there was a newline beforehand
+        if (newline_bool)
+        {
+          if (char_buffer[i] == '&' || char_buffer[i] == '|' ||
+              char_buffer[i] == '<' || char_buffer[i] == '>' ||
+              char_buffer[i] == ';' ) { error(1,1,"Error"); }
+
+
+          if (!subshell_bool)
+          {
+            // terminate word with null byte
+            command_node->command->u.word[command_word_index] = '\0';
+
+            command_node->command->type = SIMPLE_COMMAND;
+          
+            CommandStackPush(&command_stack, command_node->command);
+          }
+          // create new command
+          command_node->command = (struct command *)checked_malloc(sizeof(struct command));
+          command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
+          word = (char *) checked_malloc(SIZE*sizeof(char));
+          word_index = 0;
+          command_word_index = 0;
+          // Push semicolon operator
+          op_struct = (struct operator *) checked_malloc(sizeof(struct operator));
+          op_struct->op_type = (enum command_type *) checked_malloc(sizeof(enum command_type));
+          *(op_struct->op_type) = SEQUENCE_COMMAND;
+
+          if ( OpStackIsEmpty(&op_stack) )
+          {
+            OpStackPush(&op_stack, op_struct);
+          }
+          else
+          {
+            while( !OpStackIsEmpty(&op_stack) && op_struct->value <= OpStackTop(&op_stack)->value ) 
+            {
+              
+              command_node->command->type = *(OpStackPop(&op_stack)->op_type); 
+              command_node->command->u.command[1] = CommandStackPop(&command_stack);
+              command_node->command->u.command[0] = CommandStackPop(&command_stack);
+              
+              CommandStackPush(&command_stack, command_node->command); 
+              command_node->command = (struct command *)checked_malloc(sizeof(struct command));  
+             }
+             // create new command
+            command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
+            OpStackPush(&op_stack, op_struct);
+          }
+
+          newline_bool = 0;
+        }
+        else
+        {
+          word = (char *) checked_malloc(SIZE*sizeof(char));
+          word_index = 0;
+        }
+
+        subshell_bool = 0;
+        continue;
       }
     }
+
+    // just to deal with backtick
+    else if (char_buffer[i] == '`')
+    {
+      error(1,1,"Error");
+    }
+
     // if next char is an operator
     else if ( (char_buffer[i] == '&' && char_buffer[i+1] == '&') ||
                char_buffer[i] == '|' || char_buffer[i] == ';' ||
-               char_buffer[i] == '<' || char_buffer[i] == '>' )
+               char_buffer[i] == '<' || char_buffer[i] == '>' ||
+               char_buffer[i] == '(' || char_buffer[i] == ')' )
     {
+      if ( !valid_first_token && char_buffer[i] != '(' )
+      {
+        error(1,1,"Error");
+      }
+
       // set end of line to null byte
 
-      if (char_buffer[i-1] != ' ')
+      if ( char_buffer[i - 1] != ' ' && char_buffer[i-1] != '\t' && 
+          char_buffer[i] != '(')
       {
-        word[word_index] = '\0';
-        //set command_node's word equal to word 
-        command_node->command->u.word[command_word_index++] = word;
+
+        if (char_buffer[i-1] != ')')
+        {
+          word[word_index] = '\0';
+          //set command_node's word equal to word 
+          command_node->command->u.word[command_word_index++] = word;
+        }
       }
       
-      
-      // terminate word with null byte
-      command_node->command->u.word[command_word_index] = '\0';
+      if (char_buffer[i] != '(' && char_buffer[i-1] != ')')
+      {
+        // terminate word with null byte
+        command_node->command->u.word[command_word_index] = '\0';
 
-      command_node->command->type = SIMPLE_COMMAND;
-      
-      CommandStackPush(&command_stack, command_node->command);
+        command_node->command->type = SIMPLE_COMMAND;
+        
+        CommandStackPush(&command_stack, command_node->command);
+      }
       // create new command
       command_node->command = (struct command *)checked_malloc(sizeof(struct command));
       command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
@@ -207,10 +308,18 @@ make_command_stream (int (*get_next_byte) (void *),
         // check for more whitespace
         while(1)
         {
-          if (char_buffer[i] == ' ' || char_buffer[i] == '\n') { i++; }
+          if (char_buffer[i] == ' ' || char_buffer[i] == '\n' || 
+              char_buffer[i] == '\t') { i++; }
+          else if (char_buffer[i] == EOF) { error(1,1,"Error"); }
+          else if (char_buffer[i] == '&' || char_buffer[i] == '|' ||
+                   char_buffer[i] == '<' || char_buffer[i] == '>' ||
+                   char_buffer[i] == ';' || char_buffer[i] == ')') 
+            { error(1,1,"Error"); }
+
           else { break; }
         }
       }
+
       else if ( (char_buffer[i] == '|' && char_buffer[i + 1] != '|') ||
                  char_buffer[i] == ';' )
       {
@@ -230,10 +339,99 @@ make_command_stream (int (*get_next_byte) (void *),
         while(1)
         {
           // TODO: SEQUENCE COMMAND IS SPECIAL 
-          if (char_buffer[i] == ' ' || char_buffer[i] == '\n') { i++; }
+          if (char_buffer[i] == ' ' || char_buffer[i] == '\n' ||
+              char_buffer[i] == '\t') { i++; }
+          else if (char_buffer[i] == EOF) { error(1,1,"Error"); }
+          else if (char_buffer[i] == '&' || char_buffer[i] == '|' ||
+                   char_buffer[i] == '<' || char_buffer[i] == '>' ||
+                   char_buffer[i] == ';' || char_buffer[i] == ')' ) 
+            { error(1,1,"Error"); }
+
           else { break; }
         }
       }
+
+      // if next char is a '('
+      else if ( char_buffer[i] == '(' )
+      {
+        *(op_struct->op_type) = SUBSHELL_COMMAND;
+        op_struct->value = -2;
+
+        OpStackPush(&op_stack, op_struct);
+        i++;
+
+        while (1)
+        {
+          if (char_buffer[i] == ' ' || char_buffer[i] == '\n' || 
+                char_buffer[i] == '\t') { i++; }
+          else if (char_buffer[i] == EOF) { error(1,1,"Error"); }
+          else if (char_buffer[i] == '&' || char_buffer[i] == '|' ||
+                   char_buffer[i] == '<' || char_buffer[i] == '>' ||
+                   char_buffer[i] == ';' || char_buffer[i] == ')' ) 
+            { error(1,1,"Error"); }
+          else { break; }
+        }
+
+        continue;
+      }
+
+      // if next char is a ')'
+      else if ( char_buffer[i] == ')' )
+      {
+        if ( !OpStackIsEmpty(&op_stack) && *(OpStackTop(&op_stack)->op_type) == INPUT_COMMAND )
+        {
+          OpStackPop(&op_stack);
+          char * temp = CommandStackPop(&command_stack)->u.word[0];
+          command_node->command = CommandStackPop(&command_stack);
+          command_node->command->input = temp;
+          CommandStackPush(&command_stack, command_node->command); 
+          command_node->command = (struct command *)checked_malloc(sizeof(struct command)); 
+        }
+
+        else if ( !OpStackIsEmpty(&op_stack) && *(OpStackTop(&op_stack)->op_type) == OUTPUT_COMMAND )
+        {
+          OpStackPop(&op_stack);
+          char * temp = CommandStackPop(&command_stack)->u.word[0];
+          command_node->command = CommandStackPop(&command_stack);
+          command_node->command->output = temp;
+          CommandStackPush(&command_stack, command_node->command); 
+          command_node->command = (struct command *)checked_malloc(sizeof(struct command));
+        }
+
+        while ( !OpStackIsEmpty(&op_stack) && 
+                *(OpStackTop(&op_stack)->op_type) != SUBSHELL_COMMAND)
+        {
+          command_node->command->type = *(OpStackPop(&op_stack)->op_type); 
+          command_node->command->u.command[1] = CommandStackPop(&command_stack);
+          command_node->command->u.command[0] = CommandStackPop(&command_stack);
+          
+          CommandStackPush(&command_stack, command_node->command); 
+          command_node->command = (struct command *)checked_malloc(sizeof(struct command));
+        }
+
+        if (OpStackIsEmpty(&op_stack))
+          error(1,1,"Error");
+
+        OpStackPop(&op_stack);
+        command_node->command->u.subshell_command = CommandStackPop(&command_stack);
+        command_node->command->type = SUBSHELL_COMMAND;
+        CommandStackPush(&command_stack, command_node->command);
+
+        command_node->command = (struct command *)checked_malloc(sizeof(struct command));
+        command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
+        i++;
+        // strip whitespace
+        while (1)
+        {
+          if (char_buffer[i] == ' ' || char_buffer[i] == '\t') { i++; }
+          else if (char_buffer[i] == '\n') { subshell_bool = 1; break; }
+          else { break; }
+        }
+
+        continue;
+      }
+
+      // if char is < or >
       else
       {
         if (char_buffer[i] == '<')
@@ -251,7 +449,13 @@ make_command_stream (int (*get_next_byte) (void *),
         // check for more whitespace
         while(1)
         {
-          if (char_buffer[i] == ' ' || char_buffer[i] == '\n') { i++; }
+          if (char_buffer[i] == ' ' || char_buffer[i] == '\n' || 
+              char_buffer[i] == '\t') { i++; }
+          else if (char_buffer[i] == EOF) { error(1,1,"Error"); }
+          else if (char_buffer[i] == '&' || char_buffer[i] == '|' ||
+                   char_buffer[i] == '<' || char_buffer[i] == '>' ||
+                   char_buffer[i] == ';' || char_buffer[i] == '(' ||
+                   char_buffer[i] == ')') { error(1,1,"Error"); }
           else { break; }
         }
       }
@@ -315,7 +519,8 @@ make_command_stream (int (*get_next_byte) (void *),
       int eof = 0;
       while (1)
       {
-        if (char_buffer[i] == '\n' || char_buffer[i] == ' ') { i++; }          
+        if (char_buffer[i] == '\n' || char_buffer[i] == ' ' ||
+            char_buffer[i] == '\t') { i++; }          
         else if (char_buffer[i] == EOF) { eof = 1; break; }
         else { break; }
       }
@@ -327,6 +532,7 @@ make_command_stream (int (*get_next_byte) (void *),
     else
     { 
       word[word_index++] = char_buffer[i]; 
+      valid_first_token = 1;
     }
 
     i++;
