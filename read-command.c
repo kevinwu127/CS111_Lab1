@@ -22,12 +22,12 @@ struct commandNode
   struct commandNode * next;
 };
 
-typedef struct command_stream
+struct command_stream
 {
   struct commandNode * head;
   struct commandNode * tail;    // use this to insert new nodes
   struct commandNode * cursor;  // use this to advance to next node
-} *command_stream_t;
+};
 
 char * create_char_buffer (int (*get_next_byte) (void *),
          void *get_next_byte_argument, int * index);

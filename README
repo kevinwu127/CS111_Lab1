@@ -1,4 +1,5 @@
-This is a skeleton for CS 111 Lab 1.
+Lab 1A: Command Parsing
+Kevin Wu 104117680
+Michelle Wang 204275283
 
-Replace this README file with notes on your implementation.
-Mentions any special features or limitations.
+I used a stack array to hold the commands and operators for use in the program. I also created a char buffer that contains the entire file contents before parsing it.
