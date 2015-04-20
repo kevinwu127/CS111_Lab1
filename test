@@ -1,3 +1,1 @@
-cat a && cat b ; cat a || cat b
-
-echo abc
+cat <b && cat <a ; cat <b

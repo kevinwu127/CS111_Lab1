@@ -7,12 +7,14 @@
 #include <error.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
 
 void execute_simple(command_t c);
 void execute_non_redir(command_t c, bool or_command);
+void handle_io(command_t c);
 
 int
 command_status (command_t c)
@@ -27,8 +29,12 @@ execute_command (command_t c, bool time_travel)
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
  	
+    
+    handle_io(c);
+
  	switch (c->type)
  	{
+
  		case SIMPLE_COMMAND:
  		{
  			execute_simple(c);
@@ -47,6 +53,24 @@ execute_command (command_t c, bool time_travel)
  		}
 
  	}
+}
+
+void
+handle_io(command_t c)
+{
+	if (c->input)
+	{
+		int fd = open(c->input, O_RDONLY, 0644);
+		if (fd < 0) return;
+		dup2(fd, 0);
+	}
+
+	if (c->output)
+	{
+		int fd = open(c->output, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+		if (fd < 0) return;
+		dup2(fd, 1);
+	}
 }
 
 void

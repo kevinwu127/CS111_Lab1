@@ -120,13 +120,15 @@ make_command_stream (int (*get_next_byte) (void *),
           if (*(OpStackTop(&op_stack)->op_type) == INPUT_COMMAND)
           {
             OpStackPop(&op_stack);
-            root_command = CommandStackTop(&command_stack);
+            root_command = CommandStackPop(&command_stack);
+            //if (root_command->type != SIMPLE_COMMAND) printf("error");
             root_command->input = command_node->command->u.word[0];
           }
           else if (*(OpStackTop(&op_stack)->op_type) == OUTPUT_COMMAND)
           {
             OpStackPop(&op_stack);
-            root_command = CommandStackTop(&command_stack);
+            root_command = CommandStackPop(&command_stack);
+            //if (root_command->type != SIMPLE_COMMAND) printf("error");
             root_command->output = command_node->command->u.word[0];
           }
           /*else if (*(OpStackTop(&op_stack)->op_type) == SEQUENCE_COMMAND) // TODO: SEQUENCE
@@ -437,12 +439,12 @@ make_command_stream (int (*get_next_byte) (void *),
         if (char_buffer[i] == '<')
         {
           *(op_struct->op_type) = INPUT_COMMAND;
-          op_struct->value = -1;
+          op_struct->value = 3;
         }
         else
         {
           *(op_struct->op_type) = OUTPUT_COMMAND;
-          op_struct->value = -1;
+          op_struct->value = 3;
         }
         i++;
         
