@@ -15,6 +15,7 @@
 void execute_simple(command_t c);
 void execute_non_redir(command_t c, bool or_command);
 void handle_io(command_t c);
+void execute_pipe(command_t c);
 
 int
 command_status (command_t c)
@@ -46,6 +47,11 @@ execute_command (command_t c, bool time_travel)
  		{
 			execute_non_redir(c, c->type == OR_COMMAND);
 			break;
+ 		}
+ 		case PIPE_COMMAND:
+ 		{
+ 			execute_pipe(c);
+ 			break;
  		}
  		default:
  		{
@@ -99,6 +105,49 @@ execute_non_redir(command_t c, bool or_command)
 			 (exit_status == 0 && !or_command) )
 		{
 			execute_command(c->u.command[1], 0);
+		}
+	}
+}
+
+void
+execute_pipe(command_t c)
+{
+	int fd[2];
+	pipe(fd);
+	int first_pid = fork();
+	if (first_pid == 0)
+	{
+		close(fd[1]);
+		dup2(fd[0], 0);
+		execute_command(c->u.command[1], 0);
+	}
+	else
+	{
+		int second_pid = fork();
+		if (second_pid == 0)
+		{
+			close(fd[0]);
+			dup2(fd[1], 1);
+			execute_command(c->u.command[0], 0);
+		}
+		else
+		{
+			close(fd[0]);
+			close(fd[1]);
+			int status;
+			int returned_pid = waitpid(-1, &status, 0);
+			if (returned_pid == second_pid)
+			{
+				waitpid(first_pid, &status, 0);
+				int exit_status = WEXITSTATUS(status);
+				c->u.command[0]->status = exit_status;
+			}
+			if (returned_pid == first_pid)
+			{
+				waitpid(second_pid, &status, 0);
+				int exit_status = WEXITSTATUS(status);
+				c->u.command[1]->status = exit_status;
+			}
 		}
 	}
 }

@@ -1,1 +1,1 @@
-cat <b && cat <a ; cat <b
+cat a | sort
