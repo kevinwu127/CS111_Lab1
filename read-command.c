@@ -9,12 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/* FIXME: You may need to add #include directives, macro definitions,
-   static function definitions, etc.  */
 #define SIZE 1024
-
-/* FIXME: Define the type 'struct command_stream' here.  This should
-   complete the incomplete type declaration in command.h.  */
 
 struct commandNode
 {
@@ -36,10 +31,6 @@ command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
 		     void *get_next_byte_argument)
 {
-  /* FIXME: Replace this with your implementation.  You may need to
-     add auxiliary functions and otherwise modify the source code.
-     You can also use external functions defined in the GNU C Library.  */
-
   int index = 0;
   command_stream_t command_stream = (command_stream_t) checked_malloc(sizeof(command_stream_t));
   char * char_buffer = create_char_buffer(get_next_byte,get_next_byte_argument, &index);
@@ -121,14 +112,12 @@ make_command_stream (int (*get_next_byte) (void *),
           {
             OpStackPop(&op_stack);
             root_command = CommandStackPop(&command_stack);
-            //if (root_command->type != SIMPLE_COMMAND) printf("error");
             root_command->input = command_node->command->u.word[0];
           }
           else if (*(OpStackTop(&op_stack)->op_type) == OUTPUT_COMMAND)
           {
             OpStackPop(&op_stack);
             root_command = CommandStackPop(&command_stack);
-            //if (root_command->type != SIMPLE_COMMAND) printf("error");
             root_command->output = command_node->command->u.word[0];
           }
           /*else if (*(OpStackTop(&op_stack)->op_type) == SEQUENCE_COMMAND) // TODO: SEQUENCE
@@ -266,7 +255,7 @@ make_command_stream (int (*get_next_byte) (void *),
           char_buffer[i] != '(')
       {
 
-        if (char_buffer[i-1] != ')')
+        if (!subshell_bool)
         {
           word[word_index] = '\0';
           //set command_node's word equal to word 
@@ -274,7 +263,7 @@ make_command_stream (int (*get_next_byte) (void *),
         }
       }
       
-      if (char_buffer[i] != '(' && char_buffer[i-1] != ')')
+      if (char_buffer[i] != '(' && !subshell_bool)
       {
         // terminate word with null byte
         command_node->command->u.word[command_word_index] = '\0';
@@ -283,6 +272,7 @@ make_command_stream (int (*get_next_byte) (void *),
         
         CommandStackPush(&command_stack, command_node->command);
       }
+      subshell_bool = 0;
       // create new command
       command_node->command = (struct command *)checked_malloc(sizeof(struct command));
       command_node->command->u.word = (char **) checked_malloc(SIZE*sizeof(char*));
@@ -427,7 +417,7 @@ make_command_stream (int (*get_next_byte) (void *),
         {
           if (char_buffer[i] == ' ' || char_buffer[i] == '\t') { i++; }
           else if (char_buffer[i] == '\n') { subshell_bool = 1; break; }
-          else { break; }
+          else { subshell_bool = 1; break; }
         }
 
         continue;
@@ -491,7 +481,6 @@ make_command_stream (int (*get_next_byte) (void *),
         
         while( !OpStackIsEmpty(&op_stack) && op_struct->value <= OpStackTop(&op_stack)->value ) 
         {
-          
           command_node->command->type = *(OpStackPop(&op_stack)->op_type); 
           command_node->command->u.command[1] = CommandStackPop(&command_stack);
           command_node->command->u.command[0] = CommandStackPop(&command_stack);
@@ -539,15 +528,13 @@ make_command_stream (int (*get_next_byte) (void *),
 
     i++;
   }
-
+  
   return command_stream;
 }
 
 command_t
 read_command_stream (command_stream_t s)
 {
-  /* FIXME: Replace this with your implementation too.  */
-
   if (s->cursor == NULL) {return NULL;}
   struct commandNode * temp = s->cursor;
   s->cursor = s->cursor->next;

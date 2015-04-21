@@ -53,6 +53,11 @@ execute_command (command_t c, bool time_travel)
  			execute_pipe(c);
  			break;
  		}
+ 		case SUBSHELL_COMMAND:
+ 		{
+ 			execute_command(c->u.subshell_command, 0);
+ 			break;
+ 		}
  		default:
  		{
  			abort();

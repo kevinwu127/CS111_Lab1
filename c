@@ -1,0 +1,11 @@
+d
+g
+h
+i
+n
+o
+p
+t
+u
+x
+y
