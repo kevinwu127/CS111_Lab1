@@ -204,6 +204,26 @@ make_command_stream (int (*get_next_byte) (void *),
           }
           else
           {
+            if ( !OpStackIsEmpty(&op_stack) && *(OpStackTop(&op_stack)->op_type) == INPUT_COMMAND )
+            {
+              OpStackPop(&op_stack);
+              char * temp = CommandStackPop(&command_stack)->u.word[0];
+              command_node->command = CommandStackPop(&command_stack);
+              command_node->command->input = temp;
+              CommandStackPush(&command_stack, command_node->command); 
+              command_node->command = (struct command *)checked_malloc(sizeof(struct command)); 
+            }
+
+            else if ( !OpStackIsEmpty(&op_stack) && *(OpStackTop(&op_stack)->op_type) == OUTPUT_COMMAND )
+            {
+              OpStackPop(&op_stack);
+              char * temp = CommandStackPop(&command_stack)->u.word[0];
+              command_node->command = CommandStackPop(&command_stack);
+              command_node->command->output = temp;
+              CommandStackPush(&command_stack, command_node->command); 
+              command_node->command = (struct command *)checked_malloc(sizeof(struct command));
+            }
+            
             while( !OpStackIsEmpty(&op_stack) && op_struct->value <= OpStackTop(&op_stack)->value ) 
             {
               

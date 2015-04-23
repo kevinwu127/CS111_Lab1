@@ -1,6 +1,2 @@
-t
-y
-u
-i
-o
-p
+This is file a
+Process exited with status 0

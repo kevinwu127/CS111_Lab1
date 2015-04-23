@@ -8,12 +8,10 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-
-/* FIXME: You may need to add #include directives, macro definitions,
-   static function definitions, etc.  */
+#include <stdio.h>
 
 void execute_simple(command_t c);
-void execute_non_redir(command_t c, bool or_command);
+void execute_non_redir(command_t c, enum command_type type);
 void handle_io(command_t c);
 void execute_pipe(command_t c);
 
@@ -26,16 +24,10 @@ command_status (command_t c)
 void
 execute_command (command_t c, bool time_travel)
 {
-  /* FIXME: Replace this with your implementation.  You may need to
-     add auxiliary functions and otherwise modify the source code.
-     You can also use external functions defined in the GNU C Library.  */
- 	
-    
     handle_io(c);
 
  	switch (c->type)
  	{
-
  		case SIMPLE_COMMAND:
  		{
  			execute_simple(c);
@@ -45,7 +37,7 @@ execute_command (command_t c, bool time_travel)
  		case OR_COMMAND:
  		case SEQUENCE_COMMAND:
  		{
-			execute_non_redir(c, c->type == OR_COMMAND);
+			execute_non_redir(c, c->type);
 			break;
  		}
  		case PIPE_COMMAND:
@@ -62,7 +54,6 @@ execute_command (command_t c, bool time_travel)
  		{
  			abort();
  		}
-
  	}
 }
 
@@ -87,13 +78,25 @@ handle_io(command_t c)
 void
 execute_simple(command_t c)
 {
-	char ** cmd = c->u.word;
-	execvp(cmd[0], cmd);
-	exit(127);								// if command FAILS, manually exit 127
+	int p = fork();
+	if (p == 0)
+	{
+		char ** cmd = c->u.word;
+		execvp(cmd[0], cmd);
+		exit(127);								// if command FAILS, manually exit 127
+	}
+	else
+	{
+		int status;
+		waitpid(p, &status, 0);
+		int exit_status = WEXITSTATUS(status);
+		c->status = exit_status;
+		exit(exit_status);
+	}
 }
 
 void
-execute_non_redir(command_t c, bool or_command)
+execute_non_redir(command_t c, enum command_type type)
 {
 	int p = fork();
 	if (p == 0)
@@ -106,10 +109,28 @@ execute_non_redir(command_t c, bool or_command)
 												// need to extract bits for exit status, LEAST SIGNIFICANT 8 BITS
 		waitpid(p, &status, 0);					// blocking approach
 		int exit_status = WEXITSTATUS(status);	// gets exit status from status
-		if ( (exit_status == 1 && or_command) ||
-			 (exit_status == 0 && !or_command) )
+		if ( (exit_status == 1 && type != AND_COMMAND) ||
+			 (exit_status == 0 && type != OR_COMMAND) )
 		{
-			execute_command(c->u.command[1], 0);
+			int secp = fork();
+			if (secp == 0)
+			{
+				execute_command(c->u.command[1], 0);
+			}
+			else
+			{
+				int sec_status;
+				waitpid(secp, &sec_status, 0);
+				int sec_exit_status = WEXITSTATUS(sec_status);
+				c->status = sec_exit_status;
+				exit(sec_exit_status);
+			}
+		}
+		else if ( (exit_status == 1 && type == AND_COMMAND) ||
+				  (exit_status == 0 && type == OR_COMMAND) )
+		{
+			c->status = exit_status;
+			exit(exit_status);
 		}
 	}
 }
